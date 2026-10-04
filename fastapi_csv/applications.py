@@ -81,29 +81,29 @@ class FastAPI_CSV(FastAPI):
         # First, define a generic endpoint method, which queries the database.
         def generic_get(**kwargs):
             where_clauses = []
+            parameters = []
             for name, val in kwargs.items():
                 if val is not None:
                     if name.endswith("_greaterThan"):
-                        where_clauses.append(f"{name[:-12]}>{val}")
+                        where_clauses.append(f"{name[:-12]}>?")
                     elif name.endswith("_greaterThanEqual"):
-                        where_clauses.append(f"{name[:-17]}>={val}")
+                        where_clauses.append(f"{name[:-17]}>=?")
                     elif name.endswith("_lessThan"):
-                        where_clauses.append(f"{name[:-9]}<{val}")
+                        where_clauses.append(f"{name[:-9]}<?")
                     elif name.endswith("_lessThanEqual"):
-                        where_clauses.append(f"{name[:-14]}<={val}")
+                        where_clauses.append(f"{name[:-14]}<=?")
                     elif name.endswith("_contains"):
-                        where_clauses.append(f"instr({name[:-9]}, '{val}') > 0")
+                        where_clauses.append(f"instr({name[:-9]}, ?) > 0")
                     else:
-                        if isinstance(val, str):
-                            val = f"'{val}'"
-                        where_clauses.append(f"{name}={val}")
+                        where_clauses.append(f"{name}=?")
+                    parameters.append(val)
             if where_clauses:
                 where = "WHERE " + " AND ".join(where_clauses)
             else:
                 where = ""
 
             sql_query = f"SELECT * FROM {self.table_name} {where}"
-            dicts = self.query_database(sql_query)
+            dicts = self.query_database(sql_query, parameters)
             return dicts
 
         # Add the method as GET endpoint to fastapi.
@@ -125,10 +125,10 @@ class FastAPI_CSV(FastAPI):
             elif type_ == str:
                 self._add_query_param(route_path, col + "_contains", type_)
 
-    def query_database(self, sql_query):
+    def query_database(self, sql_query, parameters=()):
         """Executes a SQL query on the database and returns rows as list of dicts."""
         logging.info(f"Querying database: {sql_query}")
-        cur = self.con.execute(sql_query)
+        cur = self.con.execute(sql_query, parameters)
         dicts = cur.fetchall()
         return dicts
 
